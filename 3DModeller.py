@@ -4,9 +4,52 @@ from random import randint
 from screen import *
 import time
 
+# TODO implement immutability
+
+class Polygon:
+    def __init__( self, colour ):
+        self.points = []
+        self.colour = colour
+        self.isopen = True
+        self.width  = 0
+
+    def get_colour( self ):
+        return self.colour
+
+    def add( self, point ):
+        self.points.append( point )
+        return self
+
+    def remove( self, point ):
+        self.points.remove( point )
+        return self
+
+    def num_points( self ):
+        return len( self.points )
+
+    def get_points( self ):
+        return self.points
+
+    def open( self ):
+        self.isopen = True
+
+    def close( self ):
+        self.isopen = False
+
+    def is_open( self ):
+        return self.isopen
+
+    def set_width( self, width ):
+        self.width = width
+
+    def get_width( self ):
+        return self.width
+
+    def is_filled( self ):
+        return self.filled
+
 class Point:
     def __init__( self, x, y, z ):
-        self.__str__ = lambda: "(%s, %s, %s)" % ( x, y, z )
         self.x = x
         self.y = y
         self.z = z
@@ -39,24 +82,34 @@ class Model:
         self.output_polygons( screen, self.grid, 1 )
         self.output_polygons( screen, polygons, 0 )
         # TODO highlight most recent mark
+        if len( polygons ) > 0 and polygons[ -1 ].num_points() > 0:
+            last = polygons[ -1 ]
+            x, y = last.get_points()[ -1 ].rel_to( self.origin )
+            colour = ( 255, 0, 0 ) if last.is_open() else ( 0, 255, 0 )
+            pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
+            pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
         self.output_toolbar( screen )
         pygame.display.flip()
 
     def output_polygons( self, screen, polygons, w ):
         for polygon in polygons:
             points = []
-            for point in polygon:
+            for point in polygon.get_points():
                 points.append( point.rel_to( self.origin ) )
             if len( points ) > 1:
                 if len( points ) == 2:
-                    pygame.draw.line( screen, ( 255, 255, 255 ), points[ 0 ], points[ 1 ], 1 )
+                    pygame.draw.line( screen, polygon.get_colour(), points[ 0 ], points[ 1 ], 1 )
                 else:
-                    pygame.draw.polygon( screen, ( 255, 255, 255 ), points, w )
+                    pygame.draw.polygon( screen, polygon.get_colour(), points, polygon.get_width() )
 
     def make_square( self, top_left, bottom_right, z ):
         a, b = top_left
         c, d = bottom_right
-        return [ Point( a, b, z ), Point( b, c, z ), Point( c, d, z ), Point( d, a, z ) ]
+        square = Polygon( ( 255, 255, 255 ) ).add( Point( a, b, z ) ) \
+            .add( Point( b, c, z ) ).add( Point( c, d, z ) ) \
+            .add( Point( d, a, z ) )
+        square.set_width( 1 )
+        return square
 
     def make_squares( self, n, top_left, bottom_right, separation ):
         squares = []
@@ -122,23 +175,22 @@ if '__main__' == __name__:
     screen  = pygame.display.set_mode( ( width, height + 40 ) )
     objects = [ ]
     actions = Actions()
-    leftPressed = rightPressed = False
-    m = Bool()
+    leftClick = rightClick = False
     while running:
         for event in pygame.event.get():
             if QUIT == event.type:
                 running = False
             elif KEYUP == event.type:
-                if K_u == event.key: # and len( undos ) > 0:
+                if K_u == event.key:
                     if actions.can_undo():
                         actions.undo()
-                elif K_r == event.key: # and len( redos ) > 0:
+                elif K_r == event.key:
                     if actions.can_redo():
                         actions.redo()
                 elif K_ESCAPE == event.key:
                     running = False
                 elif K_RETURN == event.key:
-                    making = False
+                    objects[ -1 ].close()
                 elif K_UP    == event.key: model = model.nudge( ( 0, -10 ) )
                 elif K_RIGHT == event.key: model = model.nudge( ( 10, 0 ) )
                 elif K_DOWN  == event.key: model = model.nudge( ( 0, 10 ) )
@@ -146,21 +198,23 @@ if '__main__' == __name__:
                 elif K_w  == event.key: model = Model( ( width, height ) )
             elif MOUSEBUTTONUP == event.type:
                 x, y = pygame.mouse.get_pos()
-                if leftPressed:
-                    if m.on:
+                point = Point( x, y, 0 )
+                if leftClick:
+                    if len( objects ) > 0 and objects[ -1 ].is_open():
                         actions.do( \
-                            [ lambda: objects[ -1 ].append( Point( x, y, 0 ) ) ], \
-                            [ lambda: objects[ -1 ].pop() ] \
+                            [ lambda: objects[ -1 ].add( point ) ], \
+                            # FIXME can't remove this way
+                            [ lambda: objects[ -1 ].remove( point ) ] \
                         )
                     else:
                         actions.do( \
-                            [ lambda: objects.append( [ Point( x, y, 0 ) ] ), m.turn_on ], \
-                            [ lambda: objects.pop(), m.turn_off ] \
+                            [ lambda: objects.append( Polygon( ( 255, 255, 255 ) ).add( point ) ) ], \
+                            [ lambda: objects.pop() ] \
                         )
-                elif rightPressed and m.on:
+                elif rightClick and objects[ -1 ].is_open():
                     actions.do( \
-                        [ lambda: objects[ len( objects ) - 1 ].append( Point( x, y, 0 ) ), m.turn_off ], \
-                        [ lambda: objects[ len( objects ) - 1 ].pop(), m.turn_on ] \
+                        [ lambda: objects[ len( objects ) - 1 ].add( point ).close() ], \
+                        [ lambda: objects[ len( objects ) - 1 ].remove( point ).open() ] \
                     )
-        leftPressed, _, rightPressed = pygame.mouse.get_pressed()
+        leftClick, _, rightClick = pygame.mouse.get_pressed()
         model.output( screen, objects )
