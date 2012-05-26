@@ -34,10 +34,11 @@ class Model:
         return Model( ( self.x, self.y ), Point( x + x_, y + y_, z ) )
 
     def output( self, screen, polygons ):
-        # polygons also need colour
+        # TODO polygons also need colour
         screen.fill( 0 )
         self.output_polygons( screen, self.grid, 1 )
         self.output_polygons( screen, polygons, 0 )
+        # TODO highlight most recent mark
         self.output_toolbar( screen )
         pygame.display.flip()
 
@@ -68,44 +69,72 @@ class Model:
         text = self.font.render( str( pygame.mouse.get_pos() ), True, ( 0, 0, 0 ) )
         screen.blit( text, ( 300, 410 ) )
 
-making  = False
+class Actions:
+    def __init__( self ):
+        self.undos = []
+        self.redos = []
 
-pygame.init()
+    def do( self, do_steps, undo_steps ):
+        """ action is of the form ( [ do steps ], [ undo steps ] ) """
+        for do_step in do_steps:
+            do_step()
+        self.undos.append( ( do_steps, undo_steps ) )
+        self.redos = []
 
-my_font = pygame.font.SysFont( pygame.font.get_default_font(), 20 )
+    def can_undo( self ):
+        return len( self.undos ) > 0
 
-def output_toolbar( screen ):
-    global my_font
-    pygame.draw.rect( screen, ( 205, 205, 205 ), ( ( 0, 400 ), ( 400, 440 ) ), 0 )
-    text = my_font.render( str( pygame.mouse.get_pos() ), True, ( 0, 0, 0 ) )
-    screen.blit( text, ( 300, 410 ) )
+    def undo( self ):
+        if self.can_undo():
+            action = self.undos.pop()
+            _, undo_steps = action
+            for undo_step in undo_steps:
+                undo_step()
+            self.redos.append( action )
 
-def turnOffMaking():
-    global making
-    making = False
+    def can_redo( self ):
+        return len( self.redos ) > 0
+
+    def redo( self ):
+        if self.can_redo():
+            action = self.redos.pop()
+            redo_steps, _ = action
+            for redo_step in redo_steps:
+                redo_step()
+            self.undos.append( action )
+
+class Bool:
+    # TODO rename methods and attributes
+    def __init__( self ):
+        self.on = False
+
+    def turn_on( self ):
+        self.on = True
+
+    def turn_off( self ):
+        self.on = False
 
 if '__main__' == __name__:
+    pygame.init()
     running = True
-    undos   = [ ]
-    redos   = [ ]
     width, height = 400, 400
     model   = Model( ( width, height ) )
     screen  = pygame.display.set_mode( ( width, height + 40 ) )
     objects = [ ]
+    actions = Actions()
     leftPressed = rightPressed = False
+    m = Bool()
     while running:
         for event in pygame.event.get():
             if QUIT == event.type:
                 running = False
             elif KEYUP == event.type:
-                if K_u == event.key and len( undos ) > 0:
-                    funcs = undos.pop()
-                    for func in funcs: func()
-                    redos.append( funcs )
-                elif K_r == event.key and len( redos ) > 0:
-                    funcs = redos.pop()
-                    for func in funcs: func()
-                    undos.append( funcs )
+                if K_u == event.key: # and len( undos ) > 0:
+                    if actions.can_undo():
+                        actions.undo()
+                elif K_r == event.key: # and len( redos ) > 0:
+                    if actions.can_redo():
+                        actions.redo()
                 elif K_ESCAPE == event.key:
                     running = False
                 elif K_RETURN == event.key:
@@ -118,17 +147,20 @@ if '__main__' == __name__:
             elif MOUSEBUTTONUP == event.type:
                 x, y = pygame.mouse.get_pos()
                 if leftPressed:
-                    if making:
-                        objects[ -1 ].append( Point( x, y, 0 ) )
-                        undos.append( [ lambda: objects[ -1 ].pop() ] )
-                        redos = [ ]
+                    if m.on:
+                        actions.do( \
+                            [ lambda: objects[ -1 ].append( Point( x, y, 0 ) ) ], \
+                            [ lambda: objects[ -1 ].pop() ] \
+                        )
                     else:
-                        making = True
-                        objects.append( [ Point( x, y, 0 ) ] )
-                        undos.append( [ lambda: objects.pop(), turnOffMaking ] )
-                        redos = [ ]
-                elif rightPressed and making:
-                    objects[ len( objects ) - 1 ].append( Point( x, y, 0 ) )
-                    making = False
+                        actions.do( \
+                            [ lambda: objects.append( [ Point( x, y, 0 ) ] ), m.turn_on ], \
+                            [ lambda: objects.pop(), m.turn_off ] \
+                        )
+                elif rightPressed and m.on:
+                    actions.do( \
+                        [ lambda: objects[ len( objects ) - 1 ].append( Point( x, y, 0 ) ), m.turn_off ], \
+                        [ lambda: objects[ len( objects ) - 1 ].pop(), m.turn_on ] \
+                    )
         leftPressed, _, rightPressed = pygame.mouse.get_pressed()
         model.output( screen, objects )
