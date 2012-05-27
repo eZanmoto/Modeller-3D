@@ -4,49 +4,51 @@ from random import randint
 from screen import *
 import time
 
-# TODO implement immutability
-
 class Polygon:
-    def __init__( self, colour ):
-        self.points = []
-        self.colour = colour
-        self.isopen = True
-        self.width  = 0
+    def __init__( self, colour, width = 0 ):
+        self._points = []
+        self._colour = colour
+        self._isopen = True
+        self._width  = width
 
     def get_colour( self ):
-        return self.colour
+        return self._colour
 
     def add( self, point ):
-        self.points.append( point )
+        self._points.append( point )
         return self
 
     def remove( self, point ):
-        self.points.remove( point )
+        self._points.remove( point )
         return self
 
     def num_points( self ):
-        return len( self.points )
+        return len( self._points )
 
     def get_points( self ):
-        return self.points
+        """ Returns a copy of the points in this vector as a list. """
+        return self._points[:]
 
     def open( self ):
-        self.isopen = True
+        self._isopen = True
+        return self
 
     def close( self ):
-        self.isopen = False
+        self._isopen = False
+        return self
 
     def is_open( self ):
-        return self.isopen
+        return self._isopen
 
     def set_width( self, width ):
-        self.width = width
+        self._width = width
+        return self
 
     def get_width( self ):
-        return self.width
+        return self._width
 
     def is_filled( self ):
-        return self.filled
+        return self._filled
 
 class Point:
     def __init__( self, x, y, z ):
@@ -64,17 +66,34 @@ class Point:
         under = object_d + viewer_d + 1
         return over / under
 
+    def __str__( self ):
+        return "(%d, %d, %d)" % ( self.x, self.y, self.z )
+
+    def __eq__( self, other ):
+        return other != None and self.x == other.x and self.y == other.y and self.z == other.z
+
+    def __ne__( self, other ):
+        return not ( self == other )
+
 class Model:
-    def __init__( self, size, origin = None ):
+    # TODO implement immutability where possible
+    def __init__( self, size, origin = None, z = 0 ):
         self.x, self.y = size
         self.grid = self.make_squares( 10, ( 0, 0 ), ( self.x, self.y ), 10 )
         self.origin = Point( self.x / 2, self.y / 2, 100 ) if None == origin else origin
         self.font = pygame.font.SysFont( pygame.font.get_default_font(), 20 )
+        self.z = z
+
+    def forward( self, z ):
+        return Model( ( self.x, self.y ), self.origin, self.z - z )
+
+    def back( self, z ):
+        return Model( ( self.x, self.y ), self.origin, self.z + z )
 
     def nudge( self, magnitude ):
         x_, y_ = magnitude
         x, y, z = self.origin.x, self.origin.y, self.origin.z
-        return Model( ( self.x, self.y ), Point( x + x_, y + y_, z ) )
+        return Model( ( self.x, self.y ), Point( x + x_, y + y_, z ), self.z )
 
     def output( self, screen, polygons ):
         # TODO polygons also need colour
@@ -84,7 +103,8 @@ class Model:
         # TODO highlight most recent mark
         if len( polygons ) > 0 and polygons[ -1 ].num_points() > 0:
             last = polygons[ -1 ]
-            x, y = last.get_points()[ -1 ].rel_to( self.origin )
+            p = last.get_points()[ -1 ]
+            x, y = Point( p.x, p.y, p.z - self.z ).rel_to( self.origin )
             colour = ( 255, 0, 0 ) if last.is_open() else ( 0, 255, 0 )
             pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
             pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
@@ -94,13 +114,14 @@ class Model:
     def output_polygons( self, screen, polygons, w ):
         for polygon in polygons:
             points = []
-            for point in polygon.get_points():
-                points.append( point.rel_to( self.origin ) )
-            if len( points ) > 1:
-                if len( points ) == 2:
-                    pygame.draw.line( screen, polygon.get_colour(), points[ 0 ], points[ 1 ], 1 )
-                else:
-                    pygame.draw.polygon( screen, polygon.get_colour(), points, polygon.get_width() )
+            for p in polygon.get_points():
+                points.append( Point( p.x, p.y, p.z - self.z ).rel_to( self.origin ) )
+            if len( points ) == 1:
+                screen.set_at( points[ 0 ], polygon.get_colour() )
+            elif len( points ) == 2:
+                pygame.draw.line( screen, polygon.get_colour(), points[ 0 ], points[ 1 ], 1 )
+            else:
+                pygame.draw.polygon( screen, polygon.get_colour(), points, polygon.get_width() )
 
     def make_square( self, top_left, bottom_right, z ):
         a, b = top_left
@@ -123,12 +144,12 @@ class Model:
         screen.blit( text, ( 300, 410 ) )
 
 class Actions:
+    #TODO implement immutability where possible
     def __init__( self ):
         self.undos = []
         self.redos = []
 
     def do( self, do_steps, undo_steps ):
-        """ action is of the form ( [ do steps ], [ undo steps ] ) """
         for do_step in do_steps:
             do_step()
         self.undos.append( ( do_steps, undo_steps ) )
@@ -156,17 +177,6 @@ class Actions:
                 redo_step()
             self.undos.append( action )
 
-class Bool:
-    # TODO rename methods and attributes
-    def __init__( self ):
-        self.on = False
-
-    def turn_on( self ):
-        self.on = True
-
-    def turn_off( self ):
-        self.on = False
-
 if '__main__' == __name__:
     pygame.init()
     running = True
@@ -176,6 +186,7 @@ if '__main__' == __name__:
     objects = [ ]
     actions = Actions()
     leftClick = rightClick = False
+    z = 0
     while running:
         for event in pygame.event.get():
             if QUIT == event.type:
@@ -196,25 +207,29 @@ if '__main__' == __name__:
                 elif K_DOWN  == event.key: model = model.nudge( ( 0, 10 ) )
                 elif K_LEFT  == event.key: model = model.nudge( ( -10, 0 ) )
                 elif K_w  == event.key: model = Model( ( width, height ) )
+                elif K_k  == event.key:
+                    model = model.forward( 10 )
+                    z -= 10
+                elif K_j == event.key:
+                    model = model.back( 10 )
+                    z += 10
             elif MOUSEBUTTONUP == event.type:
                 x, y = pygame.mouse.get_pos()
-                point = Point( x, y, 0 )
                 if leftClick:
                     if len( objects ) > 0 and objects[ -1 ].is_open():
                         actions.do( \
-                            [ lambda: objects[ -1 ].add( point ) ], \
-                            # FIXME can't remove this way
-                            [ lambda: objects[ -1 ].remove( point ) ] \
+                            [ lambda: objects[ -1 ].add( Point( x, y, z ) ) ], \
+                            [ lambda: objects[ -1 ].remove( Point( x, y, z ) ) ] \
                         )
                     else:
                         actions.do( \
-                            [ lambda: objects.append( Polygon( ( 255, 255, 255 ) ).add( point ) ) ], \
+                            [ lambda: objects.append( Polygon( ( 100, 100, ( 200 + z * 2 ) % 255 ) ).add( Point( x, y, z ) ) ) ], \
                             [ lambda: objects.pop() ] \
                         )
                 elif rightClick and objects[ -1 ].is_open():
                     actions.do( \
-                        [ lambda: objects[ len( objects ) - 1 ].add( point ).close() ], \
-                        [ lambda: objects[ len( objects ) - 1 ].remove( point ).open() ] \
+                        [ lambda: objects[ len( objects ) - 1 ].add( Point( x, y, z ) ).close() ], \
+                        [ lambda: objects[ len( objects ) - 1 ].remove( Point( x, y, z ) ).open() ] \
                     )
         leftClick, _, rightClick = pygame.mouse.get_pressed()
         model.output( screen, objects )
