@@ -50,6 +50,13 @@ class Polygon:
     def is_filled( self ):
         return self._filled
 
+    def write( self ):
+        c = self.get_colour()
+        output = [ str( c[ 0 ] ) + ' ' + str( c[ 1 ] ) + ' ' + str( c[ 2 ] ), str( self.num_points() ) ]
+        for p in self._points:
+            output.append( str( p.x ) + ' ' + str( p.y ) + ' ' + str( p.z ) )
+        return output
+
 class Point:
     def __init__( self, x, y, z ):
         self.x = x
@@ -177,6 +184,28 @@ class Actions:
                 redo_step()
             self.undos.append( action )
 
+def write_objects( filename, objects ):
+    with open( filename, 'w' ) as f:
+        f.write( str( len( objects ) ) + "\n" )
+        for polygon in objects:
+            lines = polygon.write()
+            for line in lines:
+                f.write( line + "\n" )
+
+def load_objects( filename ):
+    polygons = []
+    with open( filename, 'r' ) as f:
+        lines = f.readlines()[ 1 : ] # ignore num_objects
+        while len( lines ) > 0:
+            c = lines.pop( 0 ).split()
+            polygon = Polygon( ( int( c[ 0 ] ), int( c[ 1 ] ), int( c[ 2 ] ) ) )
+            num_ps = int( lines.pop( 0 ) )
+            for i in range( 0, num_ps ):
+                magnitudes = map( int, lines.pop( 0 ).split() )
+                polygon.add( Point( *magnitudes ) )
+            polygons.append( polygon )
+    return polygons
+
 if '__main__' == __name__:
     pygame.init()
     running = True
@@ -206,13 +235,19 @@ if '__main__' == __name__:
                 elif K_RIGHT == event.key: model = model.nudge( ( 10, 0 ) )
                 elif K_DOWN  == event.key: model = model.nudge( ( 0, 10 ) )
                 elif K_LEFT  == event.key: model = model.nudge( ( -10, 0 ) )
-                elif K_w  == event.key: model = Model( ( width, height ) )
-                elif K_k  == event.key:
+                elif K_q == event.key: model = Model( ( width, height ) )
+                elif K_k == event.key:
                     model = model.forward( 10 )
                     z -= 10
                 elif K_j == event.key:
                     model = model.back( 10 )
                     z += 10
+                elif K_w == event.key:
+                    write_objects( '../out.3d', objects )
+                    print "Written!"
+                elif K_l == event.key:
+                    objects = load_objects( '../out.3d' )
+                    print "Loaded!"
             elif MOUSEBUTTONUP == event.type:
                 x, y = pygame.mouse.get_pos()
                 if leftClick:
