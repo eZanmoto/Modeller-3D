@@ -5,6 +5,7 @@ from screen import *
 import time
 
 class Polygon:
+    """Mutable"""
     def __init__( self, colour, width = 0 ):
         self._points = []
         self._colour = colour
@@ -58,6 +59,7 @@ class Polygon:
         return output
 
 class Point:
+    """Immutable"""
     def __init__( self, x, y, z ):
         self.x = x
         self.y = y
@@ -83,13 +85,13 @@ class Point:
         return not ( self == other )
 
 class Model:
-    # TODO implement immutability where possible
+    """Immutable"""
     def __init__( self, size, origin = None, z = 0 ):
         self.x, self.y = size
+        self.z = z
         self.grid = self.make_squares( 10, ( 0, 0 ), ( self.x, self.y ), 10 )
         self.origin = Point( self.x / 2, self.y / 2, 100 ) if None == origin else origin
         self.font = pygame.font.SysFont( pygame.font.get_default_font(), 20 )
-        self.z = z
 
     def forward( self, z ):
         return Model( ( self.x, self.y ), self.origin, self.z - z )
@@ -142,7 +144,7 @@ class Model:
     def make_squares( self, n, top_left, bottom_right, separation ):
         squares = []
         for i in range( 0, n ):
-            squares.append( self.make_square( top_left, bottom_right, i * separation ) )
+            squares.append( self.make_square( top_left, bottom_right, i * separation + self.z ) )
         return squares
 
     def output_toolbar( self, screen ):
