@@ -156,10 +156,9 @@ class Actions:
         self.undos = []
         self.redos = []
 
-    def do( self, do_steps, undo_steps ):
-        for do_step in do_steps:
-            do_step()
-        self.undos.append( ( do_steps, undo_steps ) )
+    def do( self, do, undo ):
+        do[ 0 ]( *do[ 1 ] )
+        self.undos.append( ( do, undo ) )
         self.redos = []
 
     def can_undo( self ):
@@ -168,9 +167,8 @@ class Actions:
     def undo( self ):
         if self.can_undo():
             action = self.undos.pop()
-            _, undo_steps = action
-            for undo_step in undo_steps:
-                undo_step()
+            _, undo = action
+            undo[ 0 ]( *undo[ 1 ] )
             self.redos.append( action )
 
     def can_redo( self ):
@@ -179,9 +177,8 @@ class Actions:
     def redo( self ):
         if self.can_redo():
             action = self.redos.pop()
-            redo_steps, _ = action
-            for redo_step in redo_steps:
-                redo_step()
+            redo, _ = action
+            redo[ 0 ]( *redo[ 1 ] )
             self.undos.append( action )
 
 def write_objects( filename, objects ):
@@ -230,7 +227,10 @@ if '__main__' == __name__:
                 elif K_ESCAPE == event.key:
                     running = False
                 elif K_RETURN == event.key:
-                    objects[ -1 ].close()
+                    actions.do( \
+                        ( objects[ -1 ].close, [] ), \
+                        ( objects[ -1 ].open, [] ) \
+                    )
                 elif K_UP    == event.key: model = model.nudge( ( 0, -10 ) )
                 elif K_RIGHT == event.key: model = model.nudge( ( 10, 0 ) )
                 elif K_DOWN  == event.key: model = model.nudge( ( 0, 10 ) )
@@ -253,18 +253,18 @@ if '__main__' == __name__:
                 if leftClick:
                     if len( objects ) > 0 and objects[ -1 ].is_open():
                         actions.do( \
-                            [ lambda: objects[ -1 ].add( Point( x, y, z ) ) ], \
-                            [ lambda: objects[ -1 ].remove( Point( x, y, z ) ) ] \
+                            ( objects[ -1 ].add, [ Point( x, y, z ) ] ), \
+                            ( objects[ -1 ].remove, [ Point( x, y, z ) ] ) \
                         )
                     else:
                         actions.do( \
-                            [ lambda: objects.append( Polygon( ( 100, 100, ( 200 + z * 2 ) % 255 ) ).add( Point( x, y, z ) ) ) ], \
-                            [ lambda: objects.pop() ] \
+                            ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + z * 2 ) % 255 ) ).add( Point( x, y, z ) ) ] ), \
+                            ( objects.pop, [] ) \
                         )
                 elif rightClick and objects[ -1 ].is_open():
                     actions.do( \
-                        [ lambda: objects[ len( objects ) - 1 ].add( Point( x, y, z ) ).close() ], \
-                        [ lambda: objects[ len( objects ) - 1 ].remove( Point( x, y, z ) ).open() ] \
+                        ( lambda a: objects[ -1 ].add( a ).close(), [ Point( x, y, z ) ] ), \
+                        ( lambda a: objects[ -1 ].remove( a ).open(), [ Point( x, y, z ) ] ) \
                     )
         leftClick, _, rightClick = pygame.mouse.get_pressed()
         model.output( screen, objects )
