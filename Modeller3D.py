@@ -149,7 +149,8 @@ class Model:
 
     def output_toolbar( self, screen ):
         pygame.draw.rect( screen, ( 205, 205, 205 ), ( ( 0, 400 ), ( 400, 440 ) ), 0 )
-        text = self.font.render( str( pygame.mouse.get_pos() ), True, ( 0, 0, 0 ) )
+        x, y = pygame.mouse.get_pos()
+        text = self.font.render( str( ( x, y, self.z ) ), True, ( 0, 0, 0 ) )
         screen.blit( text, ( 300, 410 ) )
 
 class Actions:
