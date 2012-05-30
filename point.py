@@ -18,6 +18,24 @@ class Point:
         under = object_d + viewer_d + 1
         return over / under
 
+    def move_up( self, n ):
+        return Point( self.x, self.y - n, self.z )
+
+    def move_right( self, n ):
+        return Point( self.x + n, self.y, self.z )
+
+    def move_down( self, n ):
+        return Point( self.x, self.y + n, self.z )
+
+    def move_left( self, n ):
+        return Point( self.x - n, self.y, self.z )
+
+    def move_forward( self, n ):
+        return Point( self.x, self.y, self.z + n )
+
+    def move_back( self, n ):
+        return Point( self.x, self.y, self.z - n )
+
     def __str__( self ):
         return "(%d, %d, %d)" % ( self.x, self.y, self.z )
 

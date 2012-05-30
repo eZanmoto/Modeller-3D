@@ -22,28 +22,26 @@ class Model:
         self.mag = 10
         self.font = pygame.font.SysFont( "monospace", 12 )
 
-    def move( self, move_function ):
-        x, y, z = self.position.as_tuple()
-        new_position = move_function( x, y, z )
+    def move( self, new_position ):
         return Model( ( self.width, self.height ), self.observer, new_position )
 
-    def move_up( self ):
-        return self.move( lambda x, y, z: Point( x, y - self.mag, z ) )
+    def move_up( self, n ):
+        return self.move( self.position.move_up( n ) )
 
-    def move_right( self ):
-        return self.move( lambda x, y, z: Point( x + self.mag, y, z ) )
+    def move_right( self, n ):
+        return self.move( self.position.move_right( n ) )
 
-    def move_down( self ):
-        return self.move( lambda x, y, z: Point( x, y + self.mag, z ) )
+    def move_down( self, n ):
+        return self.move( self.position.move_down( n ) )
 
-    def move_left( self ):
-        return self.move( lambda x, y, z: Point( x - self.mag, y, z ) )
+    def move_left( self, n ):
+        return self.move( self.position.move_left( n ) )
 
-    def move_forward( self ):
-        return self.move( lambda x, y, z: Point( x, y, z + self.mag ) )
+    def move_forward( self, n ):
+        return self.move( self.position.move_forward( n ) )
 
-    def move_back( self ):
-        return self.move( lambda x, y, z: Point( x, y, z - self.mag ) )
+    def move_back( self, n ):
+        return self.move( self.position.move_back( n ) )
 
     def update_observer( self, observer ):
         return Model( ( self.width, self.height ), observer, self.position )
@@ -161,12 +159,6 @@ if '__main__' == __name__:
                         ( objects[ -1 ].close, [] ), \
                         ( objects[ -1 ].open, [] ) \
                     )
-                elif K_UP    == event.key: model = model.move_up()
-                elif K_RIGHT == event.key: model = model.move_right()
-                elif K_DOWN  == event.key: model = model.move_down()
-                elif K_LEFT  == event.key: model = model.move_left()
-                elif K_j     == event.key: model = model.move_forward()
-                elif K_k     == event.key: model = model.move_back()
                 elif K_o     == event.key: mode  = OBSERVE
                 elif K_w == event.key:
                     write_objects( '../out.3d', objects )
@@ -174,23 +166,39 @@ if '__main__' == __name__:
                 elif K_l == event.key:
                     objects = load_objects( '../out.3d' )
                     print "Loaded!"
+                if OBSERVE == mode:
+                    if K_UP      == event.key: observer = observer.move_up( 10 )
+                    elif K_RIGHT == event.key: observer = observer.move_right( 10 )
+                    elif K_DOWN  == event.key: observer = observer.move_down( 10 )
+                    elif K_LEFT  == event.key: observer = observer.move_left( 10 )
+                    elif K_j     == event.key: observer = observer.move_forward( 10 )
+                    elif K_k     == event.key: observer = observer.move_back( 10 )
+                    model = model.update_observer( observer )
+                else:
+                    if K_UP      == event.key: model = model.move_up( 10 )
+                    elif K_RIGHT == event.key: model = model.move_right( 10 )
+                    elif K_DOWN  == event.key: model = model.move_down( 10 )
+                    elif K_LEFT  == event.key: model = model.move_left( 10 )
+                    elif K_j     == event.key: model = model.move_forward( 10 )
+                    elif K_k     == event.key: model = model.move_back( 10 )
             elif MOUSEBUTTONUP == event.type:
                 x, y = pygame.mouse.get_pos()
+                point = Point( x + model.position.x, y + model.position.y, model.position.z )
                 if leftClick:
                     if len( objects ) > 0 and objects[ -1 ].is_open():
                         actions.do( \
-                            ( objects[ -1 ].add, [ Point( x, y, model.position.z ) ] ), \
-                            ( objects[ -1 ].remove, [ Point( x, y, model.position.z ) ] ) \
+                            ( objects[ -1 ].add, [ point ] ), \
+                            ( objects[ -1 ].remove, [ point ] ) \
                         )
                     else:
                         actions.do( \
-                            ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) ).add( Point( x, y, model.position.z ) ) ] ), \
+                            ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) ).add( point ) ] ), \
                             ( objects.pop, [] ) \
                         )
                 elif rightClick and len( objects ) > 0 and objects[ -1 ].is_open():
                     actions.do( \
-                        ( lambda a: objects[ -1 ].add( a ).close(), [ Point( x, y, model.position.z ) ] ), \
-                        ( lambda a: objects[ -1 ].remove( a ).open(), [ Point( x, y, model.position.z ) ] ) \
+                        ( lambda a: objects[ -1 ].add( a ).close(), [ point ] ), \
+                        ( lambda a: objects[ -1 ].remove( a ).open(), [ point ] ) \
                     )
         leftClick, _, rightClick = pygame.mouse.get_pressed()
         model.output( screen, mode, objects )
