@@ -124,6 +124,67 @@ def load_objects( filename ):
             polygons.append( polygon )
     return polygons
 
+class Command():
+    WRITE = 0
+    QUIT  = 1
+
+def enter_command( screen ):
+    running = True
+    line = ":"
+    command = None
+    while running:
+        for event in pygame.event.get():
+            if QUIT == event.type:
+                running = False
+                command = Command.QUIT
+            elif KEYUP == event.type:
+                if K_RETURN == event.key:
+                    running = False
+                    words = line[ 1: ].split()
+                    if "w" == words[0]:
+                        if len( words ) > 1:
+                            command = ( Command.WRITE, [ words[ 1 ] ] )
+                        else:
+                            line = "Need <dest> argument for :w[rite]"
+                    elif "q" == words[0]:
+                        command = ( Command.QUIT, [] )
+                elif K_ESCAPE == event.key: running = False
+                elif K_BACKSPACE == event.key:
+                    if len( line ) == 1: running = False
+                    else: line = line[ : -1 ]
+                elif K_SPACE == event.key: line += " "
+                elif K_a == event.key: line += "a"
+                elif K_b == event.key: line += "b"
+                elif K_c == event.key: line += "c"
+                elif K_d == event.key: line += "d"
+                elif K_e == event.key: line += "e"
+                elif K_f == event.key: line += "f"
+                elif K_g == event.key: line += "g"
+                elif K_h == event.key: line += "h"
+                elif K_i == event.key: line += "i"
+                elif K_j == event.key: line += "j"
+                elif K_k == event.key: line += "k"
+                elif K_l == event.key: line += "l"
+                elif K_m == event.key: line += "m"
+                elif K_n == event.key: line += "n"
+                elif K_o == event.key: line += "o"
+                elif K_p == event.key: line += "p"
+                elif K_q == event.key: line += "q"
+                elif K_r == event.key: line += "r"
+                elif K_s == event.key: line += "s"
+                elif K_t == event.key: line += "t"
+                elif K_u == event.key: line += "u"
+                elif K_v == event.key: line += "v"
+                elif K_w == event.key: line += "w"
+                elif K_x == event.key: line += "x"
+                elif K_y == event.key: line += "y"
+                elif K_z == event.key: line += "z"
+        screen.fill( ( 205, 205, 205 ), Rect( 5, 405, 390, 12 ) )
+        text = pygame.font.SysFont( "monospace", 12 ).render( line, True, ( 0, 0, 0 ) )
+        screen.blit( text, ( 5, 405 ) )
+        pygame.display.update()
+    return command
+
 COMMAND = 0
 INSERT  = 1
 OBSERVE = 2
@@ -159,13 +220,20 @@ if '__main__' == __name__:
                         ( objects[ -1 ].close, [] ), \
                         ( objects[ -1 ].open, [] ) \
                     )
-                elif K_o     == event.key: mode  = OBSERVE
-                elif K_w == event.key:
-                    write_objects( '../out.3d', objects )
-                    print "Written!"
+                elif K_o == event.key: mode  = OBSERVE
                 elif K_l == event.key:
                     objects = load_objects( '../out.3d' )
                     print "Loaded!"
+                if K_COLON | KMOD_SHIFT == event.key and COMMAND == mode:
+                    command = enter_command( screen )
+                    if Command.WRITE  == command[ 0 ]:
+                        filename = command[ 1 ][ 0 ]
+                        if not filename.endswith( '.3d' ):
+                            filename += '.3d'
+                        write_objects( filename, objects )
+                        print "Wrote '" + filename + "'"
+                    elif Command.QUIT == command[ 0 ]:
+                        running = False
                 if OBSERVE == mode:
                     if K_UP      == event.key: observer = observer.move_up( 10 )
                     elif K_RIGHT == event.key: observer = observer.move_right( 10 )
