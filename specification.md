@@ -39,13 +39,6 @@ all polygons which have an enclosed vertex.
 
 ### Commands
 
-#### Save
-
-    :w[rite] filename
-
-Saves the model as a .3d file. The .3d extension is appended to the filename if
-it is not specified.
-
 #### Edit
 
     :e[dit] filename
@@ -65,6 +58,13 @@ Inserts a vertex at the position with co-ordinates (x, y, z).
 
 Creates a polygon using the vertices specified by a sequence of (x, y, z)
 co-ordinates.
+
+#### Save
+
+    :w[rite] filename
+
+Saves the model as a .3d file. The .3d extension is appended to the filename if
+it is not specified.
 
 #### Quit
 
@@ -93,7 +93,7 @@ Shows a grid on the current layer.
 
 #### Snap-to-grid option
 
-    :set s[nap]g[rid]
+    :set g[rid]s[nap]
 
 Clicking near the grid sets a point on the grid line.
 
@@ -153,10 +153,8 @@ k - move "towards" the screen
 
 #### Visual Mode
 
-h - move object left
-j - move object down
-k - move object up
-l - move object right
+j - move object "away from" the screen
+k - move object "towards" the screen
 s - delete and enter insert mode
 x - delete
 y - yank
@@ -167,4 +165,5 @@ All vertices and lines that reside on the current layer are highlighted.
 
 The perceived position of the observer, the position of the mouse cursor, and
 the position of the model, are all displayed at the right-hand side of the
-toolbar. The center of the model is considered to be its (x, y) position.
+toolbar. The top-left corner of the model is considered to be its (x, y)
+position.

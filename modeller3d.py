@@ -10,7 +10,7 @@ from point import Point
 
 class Model:
     """Immutable"""
-    def __init__( self, size, observer, position = None ):
+    def __init__( self, size, observer, position = None, has_grid = False ):
         self.font_colour = ( 0, 0, 0 )
         self.width, self.height = size
         if None == position:
@@ -19,11 +19,25 @@ class Model:
             self.position = position
         self.observer = observer
         self.grid = self.make_squares( 10, ( 0, 0 ), ( self.width, self.width ), 10 )
-        self.mag = 10
         self.font = pygame.font.SysFont( "monospace", 12 )
+        self.has_grid = has_grid
+        if self.has_grid:
+            self.front_grid = self.make_grid( ( self.width, self.width ), 40 )
+
+    def make_grid( self, size, sep ):
+        x, y = size
+        grid = []
+        for i in range( sep, x, sep ):
+            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( i, 0, 0 ) ).add( Point( i, y, 0 ) ) )
+        for i in range( sep, y, sep ):
+            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( 0, i, 0 ) ).add( Point( x, i, 0 ) ) )
+        return grid
+
+    def set_grid( self, has_grid ):
+        return Model( ( self.width, self.height ), self.observer, self.position, has_grid )
 
     def move( self, new_position ):
-        return Model( ( self.width, self.height ), self.observer, new_position )
+        return Model( ( self.width, self.height ), self.observer, new_position, self.has_grid )
 
     def move_up( self, n ):
         return self.move( self.position.move_up( n ) )
@@ -44,14 +58,12 @@ class Model:
         return self.move( self.position.move_back( n ) )
 
     def update_observer( self, observer ):
-        return Model( ( self.width, self.height ), observer, self.position )
+        return Model( ( self.width, self.height ), observer, self.position, self.has_grid )
 
     def output( self, screen, mode, polygons ):
-        # TODO polygons also need colour
         screen.fill( 0 )
         self.output_polygons( screen, self.grid, 1 )
         self.output_polygons( screen, polygons, 0 )
-        # TODO highlight most recent mark
         if len( polygons ) > 0 and polygons[ -1 ].num_points() > 0:
             last = polygons[ -1 ]
             p = last.get_points()[ -1 ]
@@ -59,6 +71,8 @@ class Model:
             colour = ( 255, 0, 0 ) if last.is_open() else ( 0, 255, 0 )
             pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
             pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
+        if self.has_grid:
+            self.output_polygons( screen, self.front_grid, 1 )
         self.output_toolbar( screen, mode )
         pygame.display.flip()
 
@@ -77,7 +91,7 @@ class Model:
     def make_square( self, top_left, bottom_right, z ):
         a, b = top_left
         c, d = bottom_right
-        square = Polygon( ( 255, 255, 255 ) ).add( Point( a, b, z ) ) \
+        square = Polygon( ( 205, 205, 205 ) ).add( Point( a, b, z ) ) \
             .add( Point( b, c, z ) ).add( Point( c, d, z ) ) \
             .add( Point( d, a, z ) )
         square.set_width( 1 )
@@ -125,9 +139,11 @@ def load_objects( filename ):
     return polygons
 
 class Command():
-    LOAD  = 0
-    WRITE = 1
-    QUIT  = 2
+    EDIT  = 0
+    POINT = 1
+    SET   = 2
+    WRITE = 3
+    QUIT  = 4
 
 def enter_command( screen ):
     running = True
@@ -142,16 +158,26 @@ def enter_command( screen ):
                 if K_RETURN == event.key:
                     running = False
                     words = line[ 1: ].split()
-                    if 'l' == words[0]:
-                        if len( words ) > 1:
-                            command = ( Command.LOAD, [ words[ 1 ] ] )
+                    if 'e' == words[0]:
+                        if len( words ) == 2:
+                            command = ( Command.EDIT, [ words[ 1 ] ] )
                         else:
-                            line = "Need <dest> argument for :l[oad]"
-                    elif 'w' == words[0]:
+                            line = ":e[dit] takes exactly one argument"
+                    elif 'p' == words[0]:
+                        if len( words ) == 4:
+                            command = ( Command.POINT, words[ 1 : ] )
+                        else:
+                            line = ":p[oint] takes exactly three arguments"
+                    elif 'set' == words[0]:
                         if len( words ) > 1:
+                            command = ( Command.SET, words[ 1 : ] )
+                        else:
+                            line = ":set expects an option"
+                    elif 'w' == words[0]:
+                        if len( words ) == 2:
                             command = ( Command.WRITE, [ words[ 1 ] ] )
                         else:
-                            line = "Need <dest> argument for :w[rite]"
+                            line = ":w[rite] takes exactly one argument"
                     elif 'q' == words[0]:
                         command = ( Command.QUIT, [] )
                     else:
@@ -243,12 +269,31 @@ if '__main__' == __name__:
                 elif K_o == event.key: mode  = OBSERVE
                 if K_COLON | KMOD_SHIFT == event.key and COMMAND == mode:
                     command = enter_command( screen )
-                    if Command.LOAD == command[ 0 ]:
+                    if Command.EDIT == command[ 0 ]:
                         filename = command[ 1 ][ 0 ]
                         if not filename.endswith( '.3d' ):
                             filename += '.3d'
                         objects = load_objects( filename )
                         print "Loaded '" + filename + "'"
+                    elif Command.POINT == command[ 0 ]:
+                        p = command[ 1 ]
+                        point = Point( int( p[ 0 ] ), int( p[ 1 ] ), int( p[ 2 ] ) )
+                        if len( objects ) > 0 and objects[ -1 ].is_open():
+                            actions.do( \
+                                ( objects[ -1 ].add, [ point ] ), \
+                                ( objects[ -1 ].remove, [ point ] ) \
+                            )
+                        else:
+                            actions.do( \
+                                ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) ).add( point ) ] ), \
+                                ( objects.pop, [] ) \
+                            )
+                    elif Command.SET == command[ 0 ]:
+                        option = command[ 1 ][ 0 ]
+                        if 'g' == option:
+                            model = model.set_grid( True )
+                        elif 'nog' == option:
+                            model = model.set_grid( False )
                     elif Command.WRITE == command[ 0 ]:
                         filename = command[ 1 ][ 0 ]
                         if not filename.endswith( '.3d' ):
