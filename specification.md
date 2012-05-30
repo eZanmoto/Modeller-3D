@@ -66,6 +66,12 @@ Inserts a vertex at the position with co-ordinates (x, y, z).
 Creates a polygon using the vertices specified by a sequence of (x, y, z)
 co-ordinates.
 
+#### Quit
+
+    :q[uit]
+
+Ends the program.
+
 ### Options
 
 Options may be set with the `:set` command, and unset by prefixing the option
@@ -119,17 +125,14 @@ where X, Y and Z are integers which may be positive or negative.
 
 #### Any Mode
 
-C-Q - exit
 ESC - exit to command mode
 
 #### Command Mode
 
 g - go to start position
-h - move left
 i - insert mode
-j - move down
-k - move up
-l - move right
+j - move model "away from" the screen
+k - move model "towards" the screen
 o - observer mode
 p - paste
 r - redo
@@ -161,3 +164,7 @@ y - yank
 ### Visual Aids
 
 All vertices and lines that reside on the current layer are highlighted.
+
+The perceived position of the observer, the position of the mouse cursor, and
+the position of the model, are all displayed at the right-hand side of the
+toolbar. The center of the model is considered to be its (x, y) position.

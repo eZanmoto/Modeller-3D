@@ -10,25 +10,45 @@ from point import Point
 
 class Model:
     """Immutable"""
-    def __init__( self, size, origin = None, z = 0 ):
-        self.x, self.y = size
-        self.z = z
-        self.grid = self.make_squares( 10, ( 0, 0 ), ( self.x, self.y ), 10 )
-        self.origin = Point( self.x / 2, self.y / 2, 100 ) if None == origin else origin
-        self.font = pygame.font.SysFont( pygame.font.get_default_font(), 20 )
+    def __init__( self, size, observer, position = None ):
+        self.font_colour = ( 0, 0, 0 )
+        self.width, self.height = size
+        if None == position:
+            self.position = Point( 0, 0, 0 )
+        else:
+            self.position = position
+        self.observer = observer
+        self.grid = self.make_squares( 10, ( 0, 0 ), ( self.width, self.width ), 10 )
+        self.mag = 10
+        self.font = pygame.font.SysFont( "monospace", 12 )
 
-    def forward( self, z ):
-        return Model( ( self.x, self.y ), self.origin, self.z - z )
+    def move( self, move_function ):
+        x, y, z = self.position.as_tuple()
+        new_position = move_function( x, y, z )
+        return Model( ( self.width, self.height ), self.observer, new_position )
 
-    def back( self, z ):
-        return Model( ( self.x, self.y ), self.origin, self.z + z )
+    def move_up( self ):
+        return self.move( lambda x, y, z: Point( x, y - self.mag, z ) )
 
-    def nudge( self, magnitude ):
-        x_, y_ = magnitude
-        x, y, z = self.origin.x, self.origin.y, self.origin.z
-        return Model( ( self.x, self.y ), Point( x + x_, y + y_, z ), self.z )
+    def move_right( self ):
+        return self.move( lambda x, y, z: Point( x + self.mag, y, z ) )
 
-    def output( self, screen, polygons ):
+    def move_down( self ):
+        return self.move( lambda x, y, z: Point( x, y + self.mag, z ) )
+
+    def move_left( self ):
+        return self.move( lambda x, y, z: Point( x - self.mag, y, z ) )
+
+    def move_forward( self ):
+        return self.move( lambda x, y, z: Point( x, y, z + self.mag ) )
+
+    def move_back( self ):
+        return self.move( lambda x, y, z: Point( x, y, z - self.mag ) )
+
+    def update_observer( self, observer ):
+        return Model( ( self.width, self.height ), observer, self.position )
+
+    def output( self, screen, mode, polygons ):
         # TODO polygons also need colour
         screen.fill( 0 )
         self.output_polygons( screen, self.grid, 1 )
@@ -37,18 +57,18 @@ class Model:
         if len( polygons ) > 0 and polygons[ -1 ].num_points() > 0:
             last = polygons[ -1 ]
             p = last.get_points()[ -1 ]
-            x, y = Point( p.x, p.y, p.z - self.z ).rel_to( self.origin )
+            x, y = Point( p.x - self.position.x, p.y - self.position.y, p.z - self.position.z ).rel_to( self.observer )
             colour = ( 255, 0, 0 ) if last.is_open() else ( 0, 255, 0 )
             pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
             pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
-        self.output_toolbar( screen )
+        self.output_toolbar( screen, mode )
         pygame.display.flip()
 
     def output_polygons( self, screen, polygons, w ):
         for polygon in polygons:
             points = []
             for p in polygon.get_points():
-                points.append( Point( p.x, p.y, p.z - self.z ).rel_to( self.origin ) )
+                points.append( Point( p.x - self.position.x, p.y - self.position.y, p.z - self.position.z ).rel_to( self.observer ) )
             if len( points ) == 1:
                 screen.set_at( points[ 0 ], polygon.get_colour() )
             elif len( points ) == 2:
@@ -68,14 +88,21 @@ class Model:
     def make_squares( self, n, top_left, bottom_right, separation ):
         squares = []
         for i in range( 0, n ):
-            squares.append( self.make_square( top_left, bottom_right, i * separation + self.z ) )
+            squares.append( self.make_square( top_left, bottom_right, i * separation + self.position.z ) )
         return squares
 
-    def output_toolbar( self, screen ):
+    def output_toolbar( self, screen, mode ):
+        modestr = ""
+        if 2 == mode: modestr = "-- OBSERVE --"
         pygame.draw.rect( screen, ( 205, 205, 205 ), ( ( 0, 400 ), ( 400, 440 ) ), 0 )
-        x, y = pygame.mouse.get_pos()
-        text = self.font.render( str( ( x, y, self.z ) ), True, ( 0, 0, 0 ) )
-        screen.blit( text, ( 300, 410 ) )
+        text = self.font.render( modestr, True, self.font_colour )
+        screen.blit( text, ( 5, 405 ) )
+        text = self.font.render( str( self.observer ), True, self.font_colour )
+        screen.blit( text, ( 5, 425 ) )
+        text = self.font.render( str( self.position ), True, self.font_colour )
+        screen.blit( text, ( 125, 425 ) )
+        text = self.font.render( str( pygame.mouse.get_pos() ), True, self.font_colour )
+        screen.blit( text, ( 245, 425 ) )
 
 def write_objects( filename, objects ):
     with open( filename, 'w' ) as f:
@@ -99,16 +126,23 @@ def load_objects( filename ):
             polygons.append( polygon )
     return polygons
 
+COMMAND = 0
+INSERT  = 1
+OBSERVE = 2
+VISUAL  = 3
+VISUAL_BATCH = 4
+
 if '__main__' == __name__:
+    mode = COMMAND
     pygame.init()
     running = True
     width, height = 400, 400
-    model   = Model( ( width, height ) )
+    observer = Point( width / 2, height / 2, 100 )
+    model   = Model( ( width, height ), observer )
     screen  = pygame.display.set_mode( ( width, height + 40 ) )
     objects = [ ]
     actions = Actions()
     leftClick = rightClick = False
-    z = 0
     while running:
         for event in pygame.event.get():
             if QUIT == event.type:
@@ -121,23 +155,19 @@ if '__main__' == __name__:
                     if actions.can_redo():
                         actions.redo()
                 elif K_ESCAPE == event.key:
-                    running = False
-                elif K_RETURN == event.key:
+                    mode = COMMAND
+                elif len( objects ) > 0 and K_RETURN == event.key:
                     actions.do( \
                         ( objects[ -1 ].close, [] ), \
                         ( objects[ -1 ].open, [] ) \
                     )
-                elif K_UP    == event.key: model = model.nudge( ( 0, -10 ) )
-                elif K_RIGHT == event.key: model = model.nudge( ( 10, 0 ) )
-                elif K_DOWN  == event.key: model = model.nudge( ( 0, 10 ) )
-                elif K_LEFT  == event.key: model = model.nudge( ( -10, 0 ) )
-                elif K_q == event.key: model = Model( ( width, height ) )
-                elif K_k == event.key:
-                    model = model.back( 10 )
-                    z += 10
-                elif K_j == event.key:
-                    model = model.forward( 10 )
-                    z -= 10
+                elif K_UP    == event.key: model = model.move_up()
+                elif K_RIGHT == event.key: model = model.move_right()
+                elif K_DOWN  == event.key: model = model.move_down()
+                elif K_LEFT  == event.key: model = model.move_left()
+                elif K_j     == event.key: model = model.move_forward()
+                elif K_k     == event.key: model = model.move_back()
+                elif K_o     == event.key: mode  = OBSERVE
                 elif K_w == event.key:
                     write_objects( '../out.3d', objects )
                     print "Written!"
@@ -149,18 +179,18 @@ if '__main__' == __name__:
                 if leftClick:
                     if len( objects ) > 0 and objects[ -1 ].is_open():
                         actions.do( \
-                            ( objects[ -1 ].add, [ Point( x, y, z ) ] ), \
-                            ( objects[ -1 ].remove, [ Point( x, y, z ) ] ) \
+                            ( objects[ -1 ].add, [ Point( x, y, model.position.z ) ] ), \
+                            ( objects[ -1 ].remove, [ Point( x, y, model.position.z ) ] ) \
                         )
                     else:
                         actions.do( \
-                            ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + z * 2 ) % 255 ) ).add( Point( x, y, z ) ) ] ), \
+                            ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) ).add( Point( x, y, model.position.z ) ) ] ), \
                             ( objects.pop, [] ) \
                         )
-                elif rightClick and objects[ -1 ].is_open():
+                elif rightClick and len( objects ) > 0 and objects[ -1 ].is_open():
                     actions.do( \
-                        ( lambda a: objects[ -1 ].add( a ).close(), [ Point( x, y, z ) ] ), \
-                        ( lambda a: objects[ -1 ].remove( a ).open(), [ Point( x, y, z ) ] ) \
+                        ( lambda a: objects[ -1 ].add( a ).close(), [ Point( x, y, model.position.z ) ] ), \
+                        ( lambda a: objects[ -1 ].remove( a ).open(), [ Point( x, y, model.position.z ) ] ) \
                     )
         leftClick, _, rightClick = pygame.mouse.get_pressed()
-        model.output( screen, objects )
+        model.output( screen, mode, objects )

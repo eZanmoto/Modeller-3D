@@ -5,6 +5,9 @@ class Point:
         self.y = y
         self.z = z
 
+    def as_tuple( self ):
+        return ( self.x, self.y, self.z )
+
     def rel_to( self, point ):
         x = self.move( point.z, point.x, self.z, self.x )
         y = self.move( point.z, point.y, self.z, self.y )
