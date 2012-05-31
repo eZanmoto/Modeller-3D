@@ -9,6 +9,8 @@ from polygon import Polygon
 from actions import Actions
 from point import Point
 
+VERSION_NUMBER = 0.2
+
 class Model:
     """Immutable"""
     def __init__( self, size, observer, position = None, has_grid = False ):
@@ -171,7 +173,9 @@ class Model:
         screen.blit( text, ( 245, 425 ) )
 
 def write_objects( filename, objects ):
+    global VERSION_NUMBER
     with open( filename, 'w' ) as f:
+        f.write( str( VERSION_NUMBER ) + "\n" )
         f.write( str( len( objects ) ) + "\n" )
         for polygon in objects:
             lines = polygon.write()
@@ -179,17 +183,23 @@ def write_objects( filename, objects ):
                 f.write( line + "\n" )
 
 def load_objects( filename ):
+    global VERSION_NUMBER
     polygons = []
     with open( filename, 'r' ) as f:
-        lines = f.readlines()[ 1 : ] # ignore num_objects
-        while len( lines ) > 0:
-            c = lines.pop( 0 ).split()
-            polygon = Polygon( ( int( c[ 0 ] ), int( c[ 1 ] ), int( c[ 2 ] ) ) )
-            num_ps = int( lines.pop( 0 ) )
-            for i in range( 0, num_ps ):
-                magnitudes = map( int, lines.pop( 0 ).split() )
-                polygon.add( Point( *magnitudes ) )
-            polygons.append( polygon )
+        lines = f.readlines()
+        version = float( lines.pop( 0 ) )
+        if version >= VERSION_NUMBER:
+            lines.pop( 0 ) # ignore num_objects
+            while len( lines ) > 0:
+                c = lines.pop( 0 ).split()
+                polygon = Polygon( ( int( c[ 0 ] ), int( c[ 1 ] ), int( c[ 2 ] ) ) )
+                num_ps = int( lines.pop( 0 ) )
+                for i in range( 0, num_ps ):
+                    magnitudes = map( int, lines.pop( 0 ).split() )
+                    polygon.add( Point( *magnitudes ) )
+                polygons.append( polygon.close() )
+        else:
+            print "Modeller3D version " + VERSION_NUMBER + " cannot read file from Modeller3D version " + version
     return polygons
 
 class Command():

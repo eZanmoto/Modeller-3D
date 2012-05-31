@@ -1,5 +1,5 @@
-Specification for Modeller 3D
-=============================
+Specification for Modeller 3D 0.2
+=================================
 
 Sean Kelleher
 -------------
