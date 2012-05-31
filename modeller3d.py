@@ -28,9 +28,11 @@ class Model:
         x, y = size
         grid = []
         for i in range( sep, x, sep ):
-            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( i, 0, 0 ) ).add( Point( i, y, 0 ) ) )
+            x_ = self.position.x + i
+            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( x_, self.position.y, 0 ) ).add( Point( x_, y, 0 ) ) )
         for i in range( sep, y, sep ):
-            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( 0, i, 0 ) ).add( Point( x, i, 0 ) ) )
+            y_ = self.position.y + i
+            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( self.position.x, y_, 0 ) ).add( Point( x, y_, 0 ) ) )
         return grid
 
     def set_grid( self, has_grid ):
