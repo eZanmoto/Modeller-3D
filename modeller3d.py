@@ -22,7 +22,7 @@ class Model:
         self.font = pygame.font.SysFont( "monospace", 12 )
         self.has_grid = has_grid
         if self.has_grid:
-            self.front_grid = self.make_grid( ( self.width, self.width ), 40 )
+            self.front_grid = self.make_grid( ( self.width, self.width ), 50 )
 
     def make_grid( self, size, sep ):
         x, y = size
