@@ -26,14 +26,12 @@ class Model:
 
     def make_grid( self, size, sep ):
         # FIXME goes out of screen
-        x, y = size
+        width, height = size
         grid = []
         for i in range( sep, width, sep ):
-            x_ = self.position.x + i
-            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( x_, self.position.y, 0 ) ).add( Point( x_, self.position.y + y, 0 ) ) )
+            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( i, 0, 0 ) ).add( Point( i, height, 0 ) ) )
         for i in range( sep, height, sep ):
-            y_ = self.position.y + i
-            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( self.position.x, y_, 0 ) ).add( Point( self.position.x + x, y_, 0 ) ) )
+            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( 0, i, 0 ) ).add( Point( width, i, 0 ) ) )
         return grid
 
     def set_grid( self, has_grid ):
@@ -81,10 +79,11 @@ class Model:
         if len( polygons ) > 0 and polygons[ -1 ].num_points() > 0:
             last = polygons[ -1 ]
             p = last.get_points()[ -1 ]
-            x, y = Point( p.x - self.position.x, p.y - self.position.y, p.z - self.position.z ).rel_to( self.observer )
-            colour = ( 255, 0, 0 ) if last.is_open() else ( 0, 255, 0 )
-            pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
-            pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
+            if p.z - self.position.z > -100:
+                x, y = Point( p.x - self.position.x, p.y - self.position.y, p.z - self.position.z ).rel_to( self.observer )
+                colour = ( 255, 0, 0 ) if last.is_open() else ( 0, 255, 0 )
+                pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
+                pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
         x, y = pygame.mouse.get_pos()
         if self.has_grid:
             self.op( screen, self.front_grid, 1 )
@@ -109,15 +108,34 @@ class Model:
 
     def output_polygons( self, screen, polygons, w ):
         for polygon in polygons:
+            all_points = polygon.get_points()
             points = []
-            for p in polygon.get_points():
-                points.append( Point( p.x - self.position.x, p.y - self.position.y, p.z - self.position.z ).rel_to( self.observer ) )
+            for i in range( 0, len( all_points ) ):
+                p = all_points[ i ]
+                z = p.z - self.position.z
+                if z > -100:
+                    points.append( Point( p.x - self.position.x, p.y - self.position.y, z ).rel_to( self.observer ) )
+                else:
+                    # points.append( self.get_it_from( all_points[ i - 1 ], p ) )
+                    points = [ ]
+                    break
             if len( points ) == 1:
                 screen.set_at( points[ 0 ], polygon.get_colour() )
             elif len( points ) == 2:
                 pygame.draw.line( screen, polygon.get_colour(), points[ 0 ], points[ 1 ], 1 )
-            else:
+            elif len( points ) > 2:
                 pygame.draw.polygon( screen, polygon.get_colour(), points, polygon.get_width() )
+
+    def get_it_from( self, a, b ):
+        return ( self.get_it( a.x, a.z, b.x, b.z ), self.get_it( a.y, a.z, b.x, b.z ) )
+
+    def get_it( self, x1, y1, x2, y2 ):
+        m = self.slope( x1, y1, x2, y2 )
+        return ( m * x1 - y1 ) / 0.1 if m == 0 else m
+
+    def slope( self, x1, y1, x2, y2 ):
+        under = ( x2 - x1 )
+        return ( y2 - y1 ) / 0.1 if under == 0 else under
 
     def make_square( self, top_left, bottom_right, z ):
         a, b = top_left
@@ -144,7 +162,10 @@ class Model:
         screen.blit( text, ( 5, 425 ) )
         text = self.font.render( str( self.position ), True, self.font_colour )
         screen.blit( text, ( 125, 425 ) )
-        text = self.font.render( str( pygame.mouse.get_pos() ), True, self.font_colour )
+        x, y = pygame.mouse.get_pos()
+        if self.has_grid:
+            x, y = self.snap( x ), self.snap( y )
+        text = self.font.render( str( ( x, y ) ), True, self.font_colour )
         screen.blit( text, ( 245, 425 ) )
 
 def write_objects( filename, objects ):
@@ -179,7 +200,7 @@ class Command():
 def enter_command( screen ):
     running = True
     line = ":"
-    command = None
+    command = ( -1, [ ] )
     while running:
         for event in pygame.event.get():
             if QUIT == event.type:
@@ -188,7 +209,7 @@ def enter_command( screen ):
             elif KEYUP == event.type:
                 if K_RETURN == event.key:
                     running = False
-                    words = line[ 1: ].split()
+                    words = line[ 1 : ].split()
                     if 'e' == words[0]:
                         if len( words ) == 2:
                             command = ( Command.EDIT, [ words[ 1 ] ] )
@@ -211,6 +232,7 @@ def enter_command( screen ):
                             line = ":w[rite] takes exactly one argument"
                     elif 'q' == words[0]:
                         command = ( Command.QUIT, [] )
+                        line = "Quitting..."
                     else:
                         line = "Don't recognize command '" + words[ 0 ] + "'"
                 elif K_ESCAPE == event.key: running = False
@@ -361,14 +383,14 @@ if '__main__' == __name__:
                     elif K_RIGHT == event.key: model = model.move_right( 10 )
                     elif K_DOWN  == event.key: model = model.move_down( 10 )
                     elif K_LEFT  == event.key: model = model.move_left( 10 )
-                    elif K_j     == event.key and observer.z > model.position.z: model = model.move_forward( 10 )
-                    elif K_k     == event.key: model = model.move_back( 10 )
+                    elif K_j     == event.key and -model.position.z < observer.z: model = model.move_back( 10 )
+                    elif K_k     == event.key: model = model.move_forward( 10 )
             elif MOUSEBUTTONUP == event.type:
                 x, y = pygame.mouse.get_pos()
                 if snapgrid:
                     x = snap( x, 50, 10 )
                     y = snap( y, 50, 10 )
-                point = Point( x + model.position.x + 1, y + model.position.y + 1, model.position.z )
+                point = Point( x + model.position.x, y + model.position.y, model.position.z )
                 if leftClick:
                     if len( objects ) > 0 and objects[ -1 ].is_open():
                         actions.do( \

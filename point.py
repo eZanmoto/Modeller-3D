@@ -14,9 +14,9 @@ class Point:
         return ( x, y )
 
     def move( self, viewer_d, displacement, object_d, object_h ):
-        over  = object_h * viewer_d + object_d * displacement
-        under = object_d + viewer_d + 1
-        return over / under
+        over  = object_h * ( viewer_d * -1 ) + object_d * displacement
+        under = object_d - viewer_d
+        return over / ( 0.1 if 0 == under else under )
 
     def move_up( self, n ):
         return Point( self.x, self.y - n, self.z )
