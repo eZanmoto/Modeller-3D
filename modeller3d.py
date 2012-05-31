@@ -60,6 +60,9 @@ class Model:
     def move_back( self, n ):
         return self.move( self.position.move_back( n ) )
 
+    def update_position( self, position ):
+        return Model( ( self.width, self.height ), self.observer, position, self.has_grid )
+
     def update_observer( self, observer ):
         return Model( ( self.width, self.height ), observer, self.position, self.has_grid )
 
@@ -330,9 +333,11 @@ if '__main__' == __name__:
             if QUIT == event.type:
                 running = False
             elif KEYUP == event.type:
-                if K_i == event.key:
+                if K_g == event.key:
+                    model = model.update_position( Point( 0, 0, 0 ) )
+                elif K_i == event.key:
                     mode = Mode.INSERT
-                if K_u == event.key:
+                elif K_u == event.key:
                     if actions.can_undo():
                         actions.undo()
                 elif K_r == event.key:
