@@ -25,7 +25,6 @@ class Model:
             self.front_grid = self.make_grid( ( self.width, self.width ), 50 )
 
     def make_grid( self, size, sep ):
-        # FIXME goes out of screen
         width, height = size
         grid = []
         for i in range( sep, width, sep ):
@@ -79,7 +78,7 @@ class Model:
         if len( polygons ) > 0 and polygons[ -1 ].num_points() > 0:
             last = polygons[ -1 ]
             p = last.get_points()[ -1 ]
-            if p.z - self.position.z > -100:
+            if p.z - self.position.z < self.observer.z:
                 x, y = Point( p.x - self.position.x, p.y - self.position.y, p.z - self.position.z ).rel_to( self.observer )
                 colour = ( 255, 0, 0 ) if last.is_open() else ( 0, 255, 0 )
                 pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
@@ -96,7 +95,7 @@ class Model:
 
     def op( self, screen, polygons, w ):
         for polygon in polygons:
-            points = []
+            points = [ ]
             for p in polygon.get_points():
                 points.append( ( p.x, p.y ) )
             if len( points ) == 1:
@@ -113,10 +112,9 @@ class Model:
             for i in range( 0, len( all_points ) ):
                 p = all_points[ i ]
                 z = p.z - self.position.z
-                if z > -100:
+                if p.z - self.position.z < self.observer.z:
                     points.append( Point( p.x - self.position.x, p.y - self.position.y, z ).rel_to( self.observer ) )
                 else:
-                    # points.append( self.get_it_from( all_points[ i - 1 ], p ) )
                     points = [ ]
                     break
             if len( points ) == 1:
@@ -138,9 +136,10 @@ class Model:
         return ( y2 - y1 ) / 0.1 if under == 0 else under
 
     def make_square( self, top_left, bottom_right, z ):
+        colour = 255 - z % 100
         a, b = top_left
         c, d = bottom_right
-        square = Polygon( ( 205, 205, 205 ) ).add( Point( a, b, z ) ) \
+        square = Polygon( ( colour, colour, colour ) ).add( Point( a, b, z ) ) \
             .add( Point( b, c, z ) ).add( Point( c, d, z ) ) \
             .add( Point( d, a, z ) )
         square.set_width( 1 )
@@ -149,14 +148,14 @@ class Model:
     def make_squares( self, n, top_left, bottom_right, separation ):
         squares = []
         for i in range( 0, n ):
-            squares.append( self.make_square( top_left, bottom_right, i * separation + self.position.z ) )
+            squares.append( self.make_square( top_left, bottom_right, self.position.z - i * separation ) )
         return squares
 
     def output_toolbar( self, screen, mode ):
-        modestr = ""
-        if 2 == mode: modestr = "-- OBSERVE --"
+        status = ""
+        if 2 == mode: status = "-- OBSERVE --"
         pygame.draw.rect( screen, ( 205, 205, 205 ), ( ( 0, 400 ), ( 400, 440 ) ), 0 )
-        text = self.font.render( modestr, True, self.font_colour )
+        text = self.font.render( status, True, self.font_colour )
         screen.blit( text, ( 5, 405 ) )
         text = self.font.render( str( self.observer ), True, self.font_colour )
         screen.blit( text, ( 5, 425 ) )
@@ -376,15 +375,15 @@ if '__main__' == __name__:
                     elif K_DOWN  == event.key: observer = observer.move_down( 10 )
                     elif K_LEFT  == event.key: observer = observer.move_left( 10 )
                     elif K_j     == event.key: observer = observer.move_forward( 10 )
-                    elif K_k == event.key and observer.z > model.position.z: observer = observer.move_back( 10 )
+                    elif K_k     == event.key and observer.z > model.position.z: observer = observer.move_back( 10 )
                     model = model.update_observer( observer )
                 else:
                     if K_UP      == event.key: model = model.move_up( 10 )
                     elif K_RIGHT == event.key: model = model.move_right( 10 )
                     elif K_DOWN  == event.key: model = model.move_down( 10 )
                     elif K_LEFT  == event.key: model = model.move_left( 10 )
-                    elif K_j     == event.key and -model.position.z < observer.z: model = model.move_back( 10 )
-                    elif K_k     == event.key: model = model.move_forward( 10 )
+                    elif K_j     == event.key and model.position.z < observer.z: model = model.move_forward( 10 )
+                    elif K_k     == event.key: model = model.move_back( 10 )
             elif MOUSEBUTTONUP == event.type:
                 x, y = pygame.mouse.get_pos()
                 if snapgrid:
