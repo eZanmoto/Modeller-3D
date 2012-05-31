@@ -93,7 +93,7 @@ Shows a grid on the current layer.
 
 #### Snap-to-grid option
 
-    :set g[rid]s[nap]
+    :set s[nap]g[rid]
 
 Clicking near the grid sets a point on the grid line.
 

@@ -25,14 +25,15 @@ class Model:
             self.front_grid = self.make_grid( ( self.width, self.width ), 50 )
 
     def make_grid( self, size, sep ):
+        # FIXME goes out of screen
         x, y = size
         grid = []
-        for i in range( sep, x, sep ):
+        for i in range( sep, width, sep ):
             x_ = self.position.x + i
-            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( x_, self.position.y, 0 ) ).add( Point( x_, y, 0 ) ) )
-        for i in range( sep, y, sep ):
+            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( x_, self.position.y, 0 ) ).add( Point( x_, self.position.y + y, 0 ) ) )
+        for i in range( sep, height, sep ):
             y_ = self.position.y + i
-            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( self.position.x, y_, 0 ) ).add( Point( x, y_, 0 ) ) )
+            grid.append( Polygon( ( 255, 255, 255 ) ).add( Point( self.position.x, y_, 0 ) ).add( Point( self.position.x + x, y_, 0 ) ) )
         return grid
 
     def set_grid( self, has_grid ):
@@ -62,6 +63,17 @@ class Model:
     def update_observer( self, observer ):
         return Model( ( self.width, self.height ), observer, self.position, self.has_grid )
 
+    def snap( self, pos ):
+        a = 50
+        b = 10
+        p = pos % a
+        if p < b:
+            return pos - p
+        elif p > a - b:
+            return pos + ( a - p )
+        else:
+            return pos
+
     def output( self, screen, mode, polygons ):
         screen.fill( 0 )
         self.output_polygons( screen, self.grid, 1 )
@@ -73,10 +85,27 @@ class Model:
             colour = ( 255, 0, 0 ) if last.is_open() else ( 0, 255, 0 )
             pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
             pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
+        x, y = pygame.mouse.get_pos()
         if self.has_grid:
-            self.output_polygons( screen, self.front_grid, 1 )
+            self.op( screen, self.front_grid, 1 )
+            x, y = self.snap( x ), self.snap( y )
+        colour = ( 0, 0, 255 )
+        pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
+        pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
         self.output_toolbar( screen, mode )
         pygame.display.flip()
+
+    def op( self, screen, polygons, w ):
+        for polygon in polygons:
+            points = []
+            for p in polygon.get_points():
+                points.append( ( p.x, p.y ) )
+            if len( points ) == 1:
+                screen.set_at( points[ 0 ], polygon.get_colour() )
+            elif len( points ) == 2:
+                pygame.draw.line( screen, polygon.get_colour(), points[ 0 ], points[ 1 ], 1 )
+            else:
+                pygame.draw.polygon( screen, polygon.get_colour(), points, polygon.get_width() )
 
     def output_polygons( self, screen, polygons, w ):
         for polygon in polygons:
@@ -233,6 +262,15 @@ def enter_command( screen ):
         pygame.display.update()
     return command
 
+def snap( pos, grid_size, strength ):
+    p = pos % grid_size
+    if p < strength:
+        return pos - p
+    elif p > grid_size - strength:
+        return pos + ( grid_size - p )
+    else:
+        return pos
+
 COMMAND = 0
 INSERT  = 1
 OBSERVE = 2
@@ -243,6 +281,7 @@ if '__main__' == __name__:
     mode = COMMAND
     pygame.init()
     running = True
+    snapgrid = False
     width, height = 400, 400
     observer = Point( width / 2, height / 2, 100 )
     model   = Model( ( width, height ), observer )
@@ -296,6 +335,11 @@ if '__main__' == __name__:
                             model = model.set_grid( True )
                         elif 'nog' == option:
                             model = model.set_grid( False )
+                        elif 'sg' == option:
+                            snapgrid = True
+                            model = model.set_grid( True )
+                        elif 'nosg' == option:
+                            snapgrid = False
                     elif Command.WRITE == command[ 0 ]:
                         filename = command[ 1 ][ 0 ]
                         if not filename.endswith( '.3d' ):
@@ -310,18 +354,21 @@ if '__main__' == __name__:
                     elif K_DOWN  == event.key: observer = observer.move_down( 10 )
                     elif K_LEFT  == event.key: observer = observer.move_left( 10 )
                     elif K_j     == event.key: observer = observer.move_forward( 10 )
-                    elif K_k     == event.key: observer = observer.move_back( 10 )
+                    elif K_k == event.key and observer.z > model.position.z: observer = observer.move_back( 10 )
                     model = model.update_observer( observer )
                 else:
                     if K_UP      == event.key: model = model.move_up( 10 )
                     elif K_RIGHT == event.key: model = model.move_right( 10 )
                     elif K_DOWN  == event.key: model = model.move_down( 10 )
                     elif K_LEFT  == event.key: model = model.move_left( 10 )
-                    elif K_j     == event.key: model = model.move_forward( 10 )
+                    elif K_j     == event.key and observer.z > model.position.z: model = model.move_forward( 10 )
                     elif K_k     == event.key: model = model.move_back( 10 )
             elif MOUSEBUTTONUP == event.type:
                 x, y = pygame.mouse.get_pos()
-                point = Point( x + model.position.x, y + model.position.y, model.position.z )
+                if snapgrid:
+                    x = snap( x, 50, 10 )
+                    y = snap( y, 50, 10 )
+                point = Point( x + model.position.x + 1, y + model.position.y + 1, model.position.z )
                 if leftClick:
                     if len( objects ) > 0 and objects[ -1 ].is_open():
                         actions.do( \
