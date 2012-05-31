@@ -3,6 +3,7 @@ from pygame.locals import *
 from random import randint
 from screen import *
 import time
+import os.path
 
 from polygon import Polygon
 from actions import Actions
@@ -87,9 +88,10 @@ class Model:
         if self.has_grid:
             self.op( screen, self.front_grid, 1 )
             x, y = self.snap( x ), self.snap( y )
-        colour = ( 0, 0, 255 )
-        pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
-        pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
+        if Mode.INSERT == mode:
+            colour = ( 0, 0, 255 )
+            pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
+            pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
         self.output_toolbar( screen, mode )
         pygame.display.flip()
 
@@ -153,7 +155,8 @@ class Model:
 
     def output_toolbar( self, screen, mode ):
         status = ""
-        if 2 == mode: status = "-- OBSERVE --"
+        if Mode.INSERT    == mode: status = "-- INSERT --"
+        elif Mode.OBSERVE == mode: status = "-- OBSERVE --"
         pygame.draw.rect( screen, ( 205, 205, 205 ), ( ( 0, 400 ), ( 400, 440 ) ), 0 )
         text = self.font.render( status, True, self.font_colour )
         screen.blit( text, ( 5, 405 ) )
@@ -190,16 +193,17 @@ def load_objects( filename ):
     return polygons
 
 class Command():
-    EDIT  = 0
-    POINT = 1
-    SET   = 2
-    WRITE = 3
-    QUIT  = 4
+    NONE  = 0
+    EDIT  = 1
+    POINT = 2
+    SET   = 3
+    WRITE = 4
+    QUIT  = 5
 
 def enter_command( screen ):
     running = True
     line = ":"
-    command = ( -1, [ ] )
+    command = ( Command.NONE, [ ] )
     while running:
         for event in pygame.event.get():
             if QUIT == event.type:
@@ -228,7 +232,7 @@ def enter_command( screen ):
                         if len( words ) == 2:
                             command = ( Command.WRITE, [ words[ 1 ] ] )
                         else:
-                            line = ":w[rite] takes exactly one argument"
+                            line = ":w[rite] takes at most argument"
                     elif 'q' == words[0]:
                         command = ( Command.QUIT, [] )
                         line = "Quitting..."
@@ -292,14 +296,15 @@ def snap( pos, grid_size, strength ):
     else:
         return pos
 
-COMMAND = 0
-INSERT  = 1
-OBSERVE = 2
-VISUAL  = 3
-VISUAL_BATCH = 4
+class Mode:
+    COMMAND = 0
+    INSERT  = 1
+    OBSERVE = 2
+    VISUAL  = 3
+    VISUAL_BATCH = 4
 
 if '__main__' == __name__:
-    mode = COMMAND
+    mode = Mode.COMMAND
     pygame.init()
     running = True
     snapgrid = False
@@ -315,6 +320,8 @@ if '__main__' == __name__:
             if QUIT == event.type:
                 running = False
             elif KEYUP == event.type:
+                if K_i == event.key:
+                    mode = Mode.INSERT
                 if K_u == event.key:
                     if actions.can_undo():
                         actions.undo()
@@ -322,21 +329,27 @@ if '__main__' == __name__:
                     if actions.can_redo():
                         actions.redo()
                 elif K_ESCAPE == event.key:
-                    mode = COMMAND
+                    mode = Mode.COMMAND
                 elif len( objects ) > 0 and K_RETURN == event.key:
                     actions.do( \
                         ( objects[ -1 ].close, [] ), \
                         ( objects[ -1 ].open, [] ) \
                     )
-                elif K_o == event.key: mode  = OBSERVE
-                if K_COLON | KMOD_SHIFT == event.key and COMMAND == mode:
+                elif K_o == event.key: mode  = Mode.OBSERVE
+                if K_COLON | KMOD_SHIFT == event.key and Mode.COMMAND == mode:
                     command = enter_command( screen )
                     if Command.EDIT == command[ 0 ]:
                         filename = command[ 1 ][ 0 ]
                         if not filename.endswith( '.3d' ):
                             filename += '.3d'
-                        objects = load_objects( filename )
-                        print "Loaded '" + filename + "'"
+                        if os.path.exists( filename ):
+                            if os.path.isfile( filename ):
+                                objects = load_objects( filename )
+                                print "Loaded '" + filename + "'"
+                            else:
+                                print "'" + filename + "' is not a file"
+                        else:
+                            print "File '" + filename + "' does not exist"
                     elif Command.POINT == command[ 0 ]:
                         p = command[ 1 ]
                         point = Point( int( p[ 0 ] ), int( p[ 1 ] ), int( p[ 2 ] ) )
@@ -369,7 +382,7 @@ if '__main__' == __name__:
                         print "Wrote '" + filename + "'"
                     elif Command.QUIT == command[ 0 ]:
                         running = False
-                if OBSERVE == mode:
+                if Mode.OBSERVE == mode:
                     if K_UP      == event.key: observer = observer.move_up( 10 )
                     elif K_RIGHT == event.key: observer = observer.move_right( 10 )
                     elif K_DOWN  == event.key: observer = observer.move_down( 10 )
@@ -384,7 +397,7 @@ if '__main__' == __name__:
                     elif K_LEFT  == event.key: model = model.move_left( 10 )
                     elif K_j     == event.key and model.position.z < observer.z: model = model.move_forward( 10 )
                     elif K_k     == event.key: model = model.move_back( 10 )
-            elif MOUSEBUTTONUP == event.type:
+            elif MOUSEBUTTONUP == event.type and Mode.INSERT == mode:
                 x, y = pygame.mouse.get_pos()
                 if snapgrid:
                     x = snap( x, 50, 10 )
