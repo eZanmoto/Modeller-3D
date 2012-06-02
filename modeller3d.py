@@ -416,21 +416,13 @@ if '__main__' == __name__:
                                 ( objects[ -1 ].close, [] ), \
                                 ( objects[ -1 ].open, [] ) \
                             )
+                        polygon = Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) )
                         for p in command[ 1 ]:
-                            point = Point( int( p[ 0 ] ), int( p[ 1 ] ), int( p[ 2 ] ) )
-                            if len( objects ) > 0 and objects[ -1 ].is_open():
-                                actions.do( \
-                                    ( objects[ -1 ].add, [ point ] ), \
-                                    ( objects[ -1 ].remove, [ point ] ) \
-                                )
-                            else:
-                                actions.do( \
-                                    ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) ).add( point ) ] ), \
-                                    ( objects.pop, [] ) \
-                                )
+                            polygon.add( Point( int( p[ 0 ] ), int( p[ 1 ] ), int( p[ 2 ] ) ) )
+                        polygon.close()
                         actions.do( \
-                            ( objects[ -1 ].close, [] ), \
-                            ( objects[ -1 ].open, [] ) \
+                            ( objects.append, [ polygon ] ), \
+                            ( objects.pop, [] ) \
                         )
                     elif Command.SET == command[ 0 ]:
                         option = command[ 1 ][ 0 ]
