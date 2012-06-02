@@ -229,12 +229,13 @@ def load_objects( filename ):
     return polygons
 
 class Command():
-    NONE  = 0
-    EDIT  = 1
-    POINT = 2
-    SET   = 3
-    WRITE = 4
-    QUIT  = 5
+    NONE    = 0
+    EDIT    = 1
+    POINT   = 2
+    POLYGON = 3
+    SET     = 4
+    WRITE   = 5
+    QUIT    = 6
 
 def enter_command( screen ):
     running = True
@@ -259,6 +260,14 @@ def enter_command( screen ):
                             command = ( Command.POINT, words[ 1 : ] )
                         else:
                             line = ":p[oint] takes exactly three arguments"
+                    elif 'pn' == words[0]:
+                        if ( len( words ) - 1 ) % 3 == 0:
+                            points = []
+                            for i in range( 1, len( words ), 3 ):
+                                points.append( words[ i : i + 3 ] )
+                            command = ( Command.POLYGON, points )
+                        else:
+                            line = ":p[olygo]n takes a multiple of three arguments"
                     elif 'set' == words[0]:
                         if len( words ) > 1:
                             command = ( Command.SET, words[ 1 : ] )
@@ -401,6 +410,28 @@ if '__main__' == __name__:
                                 ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) ).add( point ) ] ), \
                                 ( objects.pop, [] ) \
                             )
+                    elif Command.POLYGON == command[ 0 ]:
+                        if len( objects ) > 0 and objects[ -1 ].is_open():
+                            actions.do( \
+                                ( objects[ -1 ].close, [] ), \
+                                ( objects[ -1 ].open, [] ) \
+                            )
+                        for p in command[ 1 ]:
+                            point = Point( int( p[ 0 ] ), int( p[ 1 ] ), int( p[ 2 ] ) )
+                            if len( objects ) > 0 and objects[ -1 ].is_open():
+                                actions.do( \
+                                    ( objects[ -1 ].add, [ point ] ), \
+                                    ( objects[ -1 ].remove, [ point ] ) \
+                                )
+                            else:
+                                actions.do( \
+                                    ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) ).add( point ) ] ), \
+                                    ( objects.pop, [] ) \
+                                )
+                        actions.do( \
+                            ( objects[ -1 ].close, [] ), \
+                            ( objects[ -1 ].open, [] ) \
+                        )
                     elif Command.SET == command[ 0 ]:
                         option = command[ 1 ][ 0 ]
                         if 'g' == option:
