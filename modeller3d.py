@@ -239,6 +239,7 @@ class Command():
 
 def enter_command( screen ):
     running = True
+    flash = False
     line = ":"
     command = ( Command.NONE, [ ] )
     while running:
@@ -326,8 +327,9 @@ def enter_command( screen ):
                 elif K_x == event.key: line += 'x'
                 elif K_y == event.key: line += 'y'
                 elif K_z == event.key: line += 'z'
-        screen.fill( ( 205, 205, 205 ), Rect( 5, 405, 390, 12 ) )
-        text = pygame.font.SysFont( "monospace", 12 ).render( line, True, ( 0, 0, 0 ) )
+        screen.fill( ( 205, 205, 205 ), Rect( 5, 405, 390, 13 ) )
+        char = ' ' if flash else u'\u2588'
+        text = pygame.font.SysFont( "monospace", 12 ).render( line + char, True, ( 0, 0, 0 ) )
         screen.blit( text, ( 5, 405 ) )
         pygame.display.update()
     return command
