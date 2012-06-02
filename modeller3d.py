@@ -26,6 +26,8 @@ class Model:
         self.has_grid = has_grid
         if self.has_grid:
             self.front_grid = self.make_grid( ( self.width, self.width ), 50 )
+        self.highlight_colour = ( 255, 255, 0 )
+        self.highlight_radius = 5
 
     def make_grid( self, size, sep ):
         width, height = size
@@ -97,8 +99,29 @@ class Model:
             colour = ( 0, 0, 255 )
             pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
             pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
+        self.highlight( screen, polygons )
         self.output_toolbar( screen, mode )
         pygame.display.flip()
+
+    def highlight( self, screen, polygons ):
+        for polygon in polygons:
+            all_points = polygon.get_points()
+            highlights = []
+            for i in range( 0, len( all_points ) ):
+                p = all_points[ i ]
+                z = p.z - self.position.z
+                if z < self.observer.z and p.z == self.position.z:
+                    this = Point( p.x - self.position.x, p.y - self.position.y, z )
+                    highlights.append( [ this.rel_to( self.observer ) ] )
+                    prev = all_points[ i - 1 ]
+                    if prev.z == self.position.z:
+                        last = Point( prev.x - self.position.x, prev.y - self.position.y, z )
+                        highlights.append( [ last.rel_to( self.observer ), this.rel_to( self.observer ) ] )
+            for highlight in highlights:
+                if len( highlight ) == 1:
+                    pygame.draw.circle( screen, self.highlight_colour, highlight[ 0 ], self.highlight_radius, 1 )
+                elif len( highlight ) == 2:
+                    pygame.draw.line( screen, self.highlight_colour, highlight[ 0 ], highlight[ 1 ], 1 )
 
     def op( self, screen, polygons, w ):
         for polygon in polygons:
@@ -119,7 +142,7 @@ class Model:
             for i in range( 0, len( all_points ) ):
                 p = all_points[ i ]
                 z = p.z - self.position.z
-                if p.z - self.position.z < self.observer.z:
+                if z < self.observer.z:
                     points.append( Point( p.x - self.position.x, p.y - self.position.y, z ).rel_to( self.observer ) )
                 else:
                     points = [ ]

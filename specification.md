@@ -136,11 +136,9 @@ k - move model "towards" the screen
 o - observer mode
 p - paste
 r - redo
-s - delete and enter insert mode
 u - undo
 v - visual mode
 v - visual batch mode
-x - delete
 
 #### Insert Mode
 
@@ -164,6 +162,5 @@ y - yank
 All vertices and lines that reside on the current layer are highlighted.
 
 The perceived position of the observer, the position of the mouse cursor, and
-the position of the model, are all displayed at the right-hand side of the
-toolbar. The top-left corner of the model is considered to be its (x, y)
-position.
+the position of the model, are all displayed at the bottom of the toolbar. The
+top-left corner of the model is considered to be its (x, y) position.
