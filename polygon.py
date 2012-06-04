@@ -1,9 +1,6 @@
 from line import *
 from point import *
 
-def odd( n ):
-    return n % 2 == 1
-
 def within( n, lo, hi ):
     return within( n, hi, lo ) if lo > hi else n > lo and n < hi
 
@@ -68,26 +65,15 @@ class Polygon:
 
     def contains( self, model, point ):
         horizontal, vertical = Line.horizontal( point ), Line.vertical( point )
-        left_of_x = right_of_x = left_of_y = right_of_y = 0
+        left_of_x = 0
         projection = self.project( model ) 
         for l in self.lines( projection ):
             line = Line.from_point( l[ 0 ], l[ 1 ] )
-            x, y = relative_to( point, line )
-            if within( point[ 0 ], l[ 0 ][ 0 ], l[ 1 ][ 0 ] ):
-                if y == Ordering.LT:
-                    left_of_y += 1
-                elif y != None:
-                    right_of_y += 1
+            x, _ = relative_to( point, line )
             if within( point[ 1 ], l[ 0 ][ 1 ], l[ 1 ][ 1 ] ):
                 if x == Ordering.LT:
                     left_of_x += 1
-                elif x != None:
-                    right_of_x += 1
-        return  odd( left_of_x ) and odd( right_of_x ) \
-            and odd( left_of_y ) and odd( right_of_y )
-
-    def within( self, n, lo, hi ):
-        return self.within( n, hi, lo ) if lo > hi else n > lo and n < hi
+        return left_of_x % 2 == 1
 
     def project( self, model ):
         points = [ ]
