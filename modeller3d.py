@@ -100,6 +100,7 @@ class Model:
             pygame.draw.line( screen, colour, ( x - 2, y - 2 ), ( x + 2, y + 2 ), 1 )
             pygame.draw.line( screen, colour, ( x + 2, y - 2 ), ( x - 2, y + 2 ), 1 )
         self.highlight( screen, polygons )
+        self.select( screen, polygons )
         self.output_toolbar( screen, mode )
         pygame.display.flip()
 
@@ -122,6 +123,21 @@ class Model:
                     pygame.draw.circle( screen, self.highlight_colour, highlight[ 0 ], self.highlight_radius, 1 )
                 elif len( highlight ) == 2:
                     pygame.draw.line( screen, self.highlight_colour, highlight[ 0 ], highlight[ 1 ], 1 )
+
+    def select( self, screen, polygons ):
+        for polygon in polygons:
+            all_points = polygon.get_points()
+            highlights = []
+            for i in range( 0, len( all_points ) ):
+                p = all_points[ i ]
+                z = p.z - self.position.z
+                if polygon.is_selected() and z < self.observer.z and p.z == self.position.z:
+                    this = Point( p.x - self.position.x, p.y - self.position.y, z )
+                    prev = all_points[ i - 1 ]
+                    last = Point( prev.x - self.position.x, prev.y - self.position.y, z )
+                    highlights.append( [ last.rel_to( self.observer ), this.rel_to( self.observer ) ] )
+            for highlight in highlights:
+                pygame.draw.line( screen, ( 255, 0, 0 ), highlight[ 0 ], highlight[ 1 ], 1 )
 
     def op( self, screen, polygons, w ):
         for polygon in polygons:
@@ -185,6 +201,7 @@ class Model:
         status = ""
         if Mode.INSERT    == mode: status = "-- INSERT --"
         elif Mode.OBSERVE == mode: status = "-- OBSERVE --"
+        elif Mode.VISUAL  == mode: status = "-- VISUAL --"
         pygame.draw.rect( screen, ( 205, 205, 205 ), ( ( 0, 400 ), ( 400, 440 ) ), 0 )
         text = self.font.render( status, True, self.font_colour )
         screen.blit( text, ( 5, 405 ) )
@@ -384,7 +401,8 @@ if '__main__' == __name__:
                         ( objects[ -1 ].close, [] ), \
                         ( objects[ -1 ].open, [] ) \
                     )
-                elif K_o == event.key: mode  = Mode.OBSERVE
+                elif K_o == event.key: mode = Mode.OBSERVE
+                elif K_v == event.key: mode = Mode.VISUAL
                 if K_COLON | KMOD_SHIFT == event.key and Mode.COMMAND == mode:
                     command = enter_command( screen )
                     if Command.EDIT == command[ 0 ]:
@@ -460,27 +478,36 @@ if '__main__' == __name__:
                     elif K_LEFT  == event.key: model = model.move_left( 10 )
                     elif K_j     == event.key and model.position.z < observer.z: model = model.move_forward( 10 )
                     elif K_k     == event.key: model = model.move_back( 10 )
-            elif MOUSEBUTTONUP == event.type and Mode.INSERT == mode:
-                x, y = pygame.mouse.get_pos()
-                if snapgrid:
-                    x = snap( x, 50, 10 )
-                    y = snap( y, 50, 10 )
-                point = Point( x + model.position.x, y + model.position.y, model.position.z )
-                if leftClick:
-                    if len( objects ) > 0 and objects[ -1 ].is_open():
+            elif MOUSEBUTTONUP == event.type:
+                if Mode.INSERT == mode:
+                    x, y = pygame.mouse.get_pos()
+                    if snapgrid:
+                        x = snap( x, 50, 10 )
+                        y = snap( y, 50, 10 )
+                    point = Point( x + model.position.x, y + model.position.y, model.position.z )
+                    if leftClick:
+                        if len( objects ) > 0 and objects[ -1 ].is_open():
+                            actions.do( \
+                                ( objects[ -1 ].add, [ point ] ), \
+                                ( objects[ -1 ].remove, [ point ] ) \
+                            )
+                        else:
+                            actions.do( \
+                                ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) ).add( point ) ] ), \
+                                ( objects.pop, [] ) \
+                            )
+                    elif rightClick and len( objects ) > 0 and objects[ -1 ].is_open():
                         actions.do( \
-                            ( objects[ -1 ].add, [ point ] ), \
-                            ( objects[ -1 ].remove, [ point ] ) \
+                            ( lambda a: objects[ -1 ].add( a ).close(), [ point ] ), \
+                            ( lambda a: objects[ -1 ].remove( a ).open(), [ point ] ) \
                         )
-                    else:
-                        actions.do( \
-                            ( lambda a: objects.append( a ), [ Polygon( ( 100, 100, ( 200 + model.position.z * 2 ) % 255 ) ).add( point ) ] ), \
-                            ( objects.pop, [] ) \
-                        )
-                elif rightClick and len( objects ) > 0 and objects[ -1 ].is_open():
-                    actions.do( \
-                        ( lambda a: objects[ -1 ].add( a ).close(), [ point ] ), \
-                        ( lambda a: objects[ -1 ].remove( a ).open(), [ point ] ) \
-                    )
+                if Mode.VISUAL == mode and leftClick:
+                    selected = False
+                    for polygon in objects:
+                        if not selected and polygon.contains( model, pygame.mouse.get_pos() ):
+                            polygon.select()
+                            selected = True
+                        else:
+                            polygon.deselect()
         leftClick, _, rightClick = pygame.mouse.get_pressed()
         model.output( screen, mode, objects )

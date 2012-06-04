@@ -1,3 +1,5 @@
+from __future__ import division
+
 class Ordering:
     LT = -1
     EQ = 0
@@ -10,10 +12,22 @@ class Ordering:
         else: return self.GT
 
 def relative_to( point, line ):
+    """
+        None as the value of a component means that 'line' cannot be intersected
+        along this axis.
+    """
     x1, y1 = point
-    x2, _ = Line.horizontal( point ).intersection( line )
-    _, y2 = Line.vertical( point ).intersection( line )
-    return ( Ordering.compare( x1, x2 ), Ordering.compare( y1, y2 ) )
+    if line.is_horizontal():
+        _, y2 = Line.vertical( point ).intersection( line )
+        result = ( None, Ordering.compare( y1, y2 ) )
+    elif line.is_vertical():
+        x2, _ = Line.horizontal( point ).intersection( line )
+        result = ( Ordering.compare( x1, x2 ), None )
+    else:
+        _, y2 = Line.vertical( point ).intersection( line )
+        x2, _ = Line.horizontal( point ).intersection( line )
+        result = ( Ordering.compare( x1, x2 ), Ordering.compare( y1, y2 ) )
+    return result
 
 class Line:
     """Immutable"""
@@ -21,7 +35,11 @@ class Line:
     def __init__( self, point1, slope ):
         self._point = point1
         self._slope = slope
-        self._y_intercept = self._compute_y_intercept()
+        if self.is_vertical():
+            self._y_intercept = None
+        else:
+            x, y = self._point
+            self._y_intercept = y - self._slope * x
 
     @classmethod
     def from_point( self, point1, point2 ):
@@ -48,14 +66,6 @@ class Line:
     def is_vertical( self ):
         return None == self._slope
 
-    def _compute_y_intercept( self ):
-        """Point at which x = 0."""
-        if self.is_vertical():
-            return None
-        else:
-            x, y = self._point
-            return y - self._slope * x
-
     def intersection( self, line ):
         x1, y1 = self._point
         x2, y2 = line._point
@@ -71,9 +81,13 @@ class Line:
                 x, y = x1, y2
             else:
                 x, y = x1, line._slope * x1 + line._y_intercept
+        elif line.is_horizontal():
+            x, y = ( y2 - self._y_intercept ) / self._slope, y2
+        elif line.is_vertical():
+            x, y = x2, self._slope * x2 + self._y_intercept
         else:
-            y = self._slope * x2 + self._y_intercept
-            x = ( y2 - self._y_intercept ) / self._slope
+            x = ( line._y_intercept - self._y_intercept ) / ( self._slope - line._slope )
+            y = self._slope * x + self._y_intercept
         return ( x, y )
 
     def __str__( self ):
@@ -93,9 +107,9 @@ class Line:
                 return "y = %sx" % ( x_ )
             else:
                 if self._y_intercept >= 0:
-                    operator, b = "-", str( self._y_intercept )
+                    operator, b = "+", str( self._y_intercept )
                 else:
-                    operator, b = "+", str( self._y_intercept )[ 1 : ]
+                    operator, b = "-", str( self._y_intercept )[ 1 : ]
                 return "y = %sx %s %s" % ( x_, operator, b )
 
 tests_passed = 0
@@ -147,10 +161,19 @@ if '__main__' == __name__:
     assert_intersection( lines, ( 2, -4 ) )
 
     print "\n\n----- Testing sixth path -----"
-    print "----- first isn't vertical or horizontal -----"
+    print "----- second is horizontal -----"
+    lines.append( Line.from_point( ( 2, -4 ), ( -2, 4 ) ) )
+    lines.append( Line.from_point( ( 2, 4 ), ( -2, 4 ) ) )
+    assert_intersection( lines, ( -2, 4 ) )
+
+    print "\n\n----- Testing seventh path -----"
+    print "----- second is vertical -----"
     lines.append( Line.from_point( ( 2, -4 ), ( -2, 4 ) ) )
     lines.append( Line.from_point( ( 2, -4 ), ( 2, 4 ) ) )
     assert_intersection( lines, ( 2, -4 ) )
+
+    print "\n\n----- Testing eigth path -----"
+    print "----- first isn't vertical or horizontal -----"
     lines.append( Line.from_slope( ( 0, 0 ),  1 ) )
     lines.append( Line.from_slope( ( 0, 0 ), -1 ) )
     assert_intersection( lines, ( 0, 0 ) )
@@ -159,12 +182,15 @@ if '__main__' == __name__:
     assert_intersection( lines, ( 0, 0 ) )
     lines.append( Line.from_point( ( 0, 2 ), ( 2, 0 ) ) )
     lines.append( Line.from_point( ( 0, 0 ), ( 2, 2 ) ) )
-    assert_intersection( lines, ( -1, -1 ) )
+    assert_intersection( lines, ( 1, 1 ) )
 
     if tests_failed == 0:
-        print "All %d tests passed." % ( tests_passed )
+        print "\nAll %d tests passed." % ( tests_passed )
     else:
-        print "%d/%d tests passed." % ( tests_passed, tests_passed + tests_failed )
+        print "\n%d/%d tests passed." % ( tests_passed, tests_passed + tests_failed )
 
     point, line = ( 0, 0 ), Line.from_slope( ( 2, 1 ), 1 )
+    print "\n[%s] is %s relative to [%s]" % ( point, relative_to( point, line ), line )
+
+    point, line = ( 0, 0 ), Line.from_slope( ( 2, 2 ), 0 )
     print "\n[%s] is %s relative to [%s]" % ( point, relative_to( point, line ), line )
